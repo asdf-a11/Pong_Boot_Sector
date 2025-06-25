@@ -1,36 +1,30 @@
+;Macro for drawing a image arg1=ptr to image arg2 = xpos arg3 = ypos
 %macro DrawImg 3
-	[BITS 32]
-	pushad
+	[BITS 32];Tell assemblyer to treat as 32-bit code so when pushing to stack doesnt
+	pushad   ;truncate values to 16 bits
 	push %1
 	push %2
 	push %3
 	pop esi
 	pop edi
 	pop eax
-	[BITS 16]
+	[BITS 16];Tell assembler real mode because processor expects call and ret to be real mode
 	call drawImg_f	
+	[BITS 32];So popad matches the 32-bit assembled pushad prevoisly
 	popad
+	[BITS 16];Tell assembler back to real mode
 %endmacro
 clearScreenBlack:
 	pushad
-	;mov eax, BM
-	;.loop:
-	;	cmp eax, BM+(SX*SY)
-	;	jge .endLoop
-	;	
-	;	mov byte[eax], 0
-	;	
-	;	inc eax
-	;	jmp .loop
-	;.endLoop:
 	mov ax, 0x0fff
 	mov es, ax
 	xor al, al
 	mov cx, (SX*SY)
 	xor di, di
-	rep stosb
+	rep stosb;Quickly sets all video memory to 0
 	popad
 	ret
+;Takes no arguments moves the display buffer into video memory to be displayed
 display:
 	pushad
 	mov eax, VM
@@ -50,6 +44,7 @@ display:
 	
 	popad
 	ret
+;_f notates that this is the function to be called from a Macro
 drawImg_f: ; eax = ptr edi = xpos esi = ypos
 	pushad
 	push eax

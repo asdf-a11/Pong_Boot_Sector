@@ -1,14 +1,42 @@
 [org 0x7e00]
 [bits 16]
+
+jmp main
+
 VM equ 0xA0000
 TM equ 0xb8000
 SX equ 320
 SY equ 200
+;SS for Screen Size
 %define SS (SX*SY)
+;Where it stores the second video buffer for storing a frame before it is renderd
 BM equ 0xfff0
+;Address of the timer that bios updates
 TIMER equ 0x046C
 TICKS_PER_SECOND equ 18
-jmp main
+PLAYER_UP_KEY equ 'w'
+PLAYER_DOWN_KEY equ 's'
+ENEMY_UP_KEY equ 'j'
+ENEMY_DOWN_KEY equ 'k'
+keyboardAddr: dd 0; Address of keyboard buffer initiolized at program start
+px: dd distFromBack
+py: dd 11
+ex: dd SX-distFromBack
+ey: dd 0
+ballX: dd SX/2
+ballY: dd SY/2
+ballVX: dd 0
+ballVY: dd 0
+ScoreE: db 0,0,0
+ScoreP: db 0,0,0
+;List of 32-bit pointers to each font image for 0-9 characters
+FontList: times 10 dd 0
+;game code
+speed equ 4
+batSizeY equ 30
+distFromBack equ 10
+
+
 %include "settings.asm"
 %macro dbPixel 2
 	push eax
@@ -19,11 +47,15 @@ jmp main
 %endmacro
 %include "DrawCode.asm"
 main:	
+	;Using VGA mode 0x13
 	mov ax, 0x13
-	int 0x10 ; set vga mode 13
+	int 0x10 
 	
+	;Stack allocate buffer to store keypresses
 	sub esp, 256
 	mov dword[keyboardAddr], esp
+
+	;Initilize game
 	call ResetBall
 	call FillFontList
 	
@@ -45,14 +77,12 @@ main:
 		call DrawEnemy
 		
 		call display
-		;mov eax, 1
-		;call WaitTick
+		
+		mov eax, 1 ;Wait one tick
+		call WaitTick
 	jmp .gameLoop
 
-;game code
-speed equ 4
-batSizeY equ 30
-distFromBack equ 10
+
 DrawPerson:;ecx x ptr ebx yptr
 	pushad	
 	mov eax, SX
@@ -245,7 +275,7 @@ DrawBall:
 	ret
 PlayerInput:
 	push eax
-	mov al, 'w'
+	mov al, PLAYER_UP_KEY
 	call CheckKey
 	if_e al, 1
 		mov eax, dword[py]		
@@ -254,7 +284,7 @@ PlayerInput:
 			mov dword[py], eax
 		ifend
 	ifend
-	mov al, 's'
+	mov al, PLAYER_DOWN_KEY
 	call CheckKey
 	if_e al, 1
 		mov eax, dword[py]
@@ -267,7 +297,7 @@ PlayerInput:
 	ret
 EnemyInput:
 	push eax
-	mov al, 'j'
+	mov al, ENEMY_UP_KEY
 	call CheckKey
 	if_e al, 1
 		mov eax, dword[ey]		
@@ -276,7 +306,7 @@ EnemyInput:
 			mov dword[ey], eax
 		ifend
 	ifend
-	mov al, 'k'
+	mov al, ENEMY_DOWN_KEY
 	call CheckKey
 	if_e al, 1
 		mov eax, dword[ey]
@@ -299,8 +329,6 @@ FillFontList:
 	mov dword[FontList+32], Font8
 	mov dword[FontList+36], Font9
 	ret
-;keypresses
-keyboardAddr: dd 0
 UpdateKeyboard:
 	pushad
 	mov eax, dword[keyboardAddr]
@@ -356,28 +384,19 @@ WaitSeconds:; eax = seconds
 	js .loop	
 	popad
 	ret
-WaitTick:;eax tick
+;Eax is the number of ticks to wait
+WaitTick:
 	pushad
 	mov bx, word[TIMER]
 	add bx, ax
 	.loop:
-	cmp word[TIMER], bx
-	js .loop	
+		cmp word[TIMER], bx
+		js .loop	
 	popad
 	ret
-;vars
-px: dd distFromBack
-py: dd 11
-ex: dd SX-distFromBack
-ey: dd 0
-ballX: dd SX/2
-ballY: dd SY/2
-ballVX: dd 0
-ballVY: dd 0
-ScoreE: db 0,0,0
-ScoreP: db 0,0,0
-FontList: times 10 dd 0 ; nullptr
 
+
+;Include all font images as part of the program
 %assign i 0
 %rep 10
 Font%[i]:
